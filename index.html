@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Chat</title>
+    <style>
+        body { font-size: 12px; font-family: sans-serif; background: #000; color: #fff; margin: 0; }
+        .tab { display: inline-block; padding: 5px; background: #333; border: 1px solid #666; }
+        .active { background: #0078d7; }
+        #view { border-top: 1px solid #666; padding: 10px; }
+        input, button { background: #222; color: #fff; border: 1px solid #666; margin: 2px; }
+        .friend-item, .room-item { border-bottom: 1px solid #444; padding: 5px; }
+    </style>
+</head>
+<body onload="init()">
+    <div id="nav">
+        <div class="tab active" onclick="switchTab('rooms')">ルーム</div>
+        <div class="tab" onclick="switchTab('friends')">フレンド</div>
+        <div class="tab" onclick="switchTab('settings')">設定</div>
+    </div>
+
+    <div id="view">
+        </div>
+
+    <script src="main.js"></script>
+    <script>
+        function init() {
+            // ローカルストレージからIDを読み込むなどの初期処理
+            switchTab('rooms');
+        }
+
+        function switchTab(tab) {
+            var v = document.getElementById('view');
+            var tabs = document.getElementsByClassName('tab');
+            for(var i=0; i<tabs.length; i++) tabs[i].className = 'tab';
+            
+            if (tab === 'rooms') {
+                v.innerHTML = '<h3>Rooms</h3><div id="room-list">Loading...</div>' +
+                             '<button onclick="createRoom()">+ New Room</button>';
+                loadRooms();
+            } else if (tab === 'friends') {
+                v.innerHTML = '<h3>Friends</h3><div id="friend-list"></div>' +
+                             '<input id="target-id" placeholder="Name#Trip"><button onclick="addFriend()">Add</button>';
+                renderFriends();
+            } else if (tab === 'settings') {
+                var current = localStorage.getItem('name_pass') || 'Name#Pass';
+                v.innerHTML = '<h3>Settings</h3>' +
+                             'ID: <input id="my-id" value="'+current+'"><button onclick="saveID()">Save</button>';
+            }
+        }
+    </script>
+</body>
+</html>
