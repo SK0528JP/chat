@@ -2,52 +2,189 @@
 <html>
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chat</title>
     <style>
-        body { font-size: 12px; font-family: sans-serif; background: #000; color: #fff; margin: 0; }
-        .tab { display: inline-block; padding: 5px; background: #333; border: 1px solid #666; }
-        .active { background: #0078d7; }
-        #view { border-top: 1px solid #666; padding: 10px; }
-        input, button { background: #222; color: #fff; border: 1px solid #666; margin: 2px; }
-        .friend-item, .room-item { border-bottom: 1px solid #444; padding: 5px; }
+        /* 3DS向け極限軽量スタイル */
+        body { font-size: 12px; font-family: sans-serif; background: #000; color: #fff; margin: 0; padding: 0; }
+        #nav { background: #222; padding: 5px; border-bottom: 1px solid #444; position: fixed; top: 0; width: 100%; z-index: 100; }
+        .tab { display: inline-block; padding: 5px 10px; background: #333; border: 1px solid #666; color: #fff; text-decoration: none; margin-right: 2px; }
+        .active { background: #0078d7; border-color: #00a2ff; }
+        #view { margin-top: 40px; padding: 10px; pb: 50px; }
+        input, button { background: #111; color: #fff; border: 1px solid #666; margin: 3px 0; padding: 4px; width: 100%; box-sizing: border-box; }
+        .log-box { height: 180px; overflow-y: scroll; border: 1px solid #333; background: #050505; margin-bottom: 5px; padding: 3px; }
+        .msg { border-bottom: 1px dotted #333; padding: 3px; word-break: break-all; }
+        .time { color: #888; font-size: 10px; }
+        .user { color: #00ff00; font-weight: bold; }
+        .room-item, .friend-item { background: #111; border: 1px solid #333; padding: 8px; margin-bottom: 5px; }
     </style>
 </head>
 <body onload="init()">
-    <div id="nav">
-        <div class="tab active" onclick="switchTab('rooms')">ルーム</div>
-        <div class="tab" onclick="switchTab('friends')">フレンド</div>
-        <div class="tab" onclick="switchTab('settings')">設定</div>
+
+<div id="nav">
+    <a href="javascript:void(0)" id="t-rooms" class="tab active" onclick="switchTab('rooms')">ルーム</a>
+    <a href="javascript:void(0)" id="t-friends" class="tab" onclick="switchTab('friends')">フレンド</a>
+    <a href="javascript:void(0)" id="t-set" class="tab" onclick="switchTab('settings')">設定</a>
+</div>
+
+<div id="view">
     </div>
 
-    <div id="view">
-        </div>
+<script>
+    // --- 設定項目 (ここをあなたの環境に合わせて書き換えてください) ---
+    var GH_USER = "SK0528JP";
+    var GH_REPO = "chat";
+    var GIST_ID = "a325011b0c2805409957d4579e1160bd";
+    var GIST_RAW = "https://gist.githubusercontent.com/" + GH_USER + "/" + GIST_ID + "/raw/rooms.json";
 
-    <script src="main.js"></script>
-    <script>
-        function init() {
-            // ローカルストレージからIDを読み込むなどの初期処理
-            switchTab('rooms');
+    var currentRoom = "lobby"; // デフォルトルーム
+    var updateTimer = null;
+
+    function init() {
+        // URLからルームID取得 (?rm=UUID)
+        var rm = getQueryParam('rm');
+        if(rm) currentRoom = rm;
+        switchTab('rooms');
+    }
+
+    function switchTab(tab) {
+        var v = document.getElementById('view');
+        // タブの見た目更新
+        var tabs = document.getElementsByClassName('tab');
+        for(var i=0; i<tabs.length; i++) tabs[i].className = 'tab';
+        document.getElementById('t-' + tab).className = 'tab active';
+
+        if(updateTimer) clearInterval(updateTimer);
+
+        if (tab === 'rooms') {
+            v.innerHTML = '<b>ルーム選択</b><div id="room-list">読込中...</div>' +
+                          '<hr><b>新規作成(UUID)</b><input id="new-rm" placeholder="uuid-123"><button onclick="createRoom()">作成</button>';
+            loadRoomList();
+        } 
+        else if (tab === 'chat') {
+            v.innerHTML = '<b>Room: ' + currentRoom + '</b>' +
+                          '<div id="log" class="log-box">読込中...</div>' +
+                          '<input id="msg" placeholder="本文"><button onclick="send()">送信(Actions起動)</button>';
+            loadChat();
+            updateTimer = setInterval(loadChat, 10000); // 10秒更新
         }
+        else if (tab === 'friends') {
+            v.innerHTML = '<b>フレンド</b><div id="friend-list"></div>' +
+                          '<hr><input id="f-id" placeholder="Name#Trip"><button onclick="addFriend()">登録</button>';
+            renderFriends();
+        }
+        else if (tab === 'settings') {
+            var id = localStorage.getItem('chat_id') || 'Name#Pass';
+            var tk = localStorage.getItem('gh_token') || '';
+            v.innerHTML = '<b>設定</b><br>名前#パス:<input id="s-id" value="'+id+'">' +
+                          'GHトークン:<input id="s-tk" type="password" value="'+tk+'">' +
+                          '<button onclick="saveSet()">保存</button><p style="font-size:10px; color:red;">※トークンは端末内にのみ保存されます</p>';
+        }
+    }
 
-        function switchTab(tab) {
-            var v = document.getElementById('view');
-            var tabs = document.getElementsByClassName('tab');
-            for(var i=0; i<tabs.length; i++) tabs[i].className = 'tab';
-            
-            if (tab === 'rooms') {
-                v.innerHTML = '<h3>Rooms</h3><div id="room-list">Loading...</div>' +
-                             '<button onclick="createRoom()">+ New Room</button>';
-                loadRooms();
-            } else if (tab === 'friends') {
-                v.innerHTML = '<h3>Friends</h3><div id="friend-list"></div>' +
-                             '<input id="target-id" placeholder="Name#Trip"><button onclick="addFriend()">Add</button>';
-                renderFriends();
-            } else if (tab === 'settings') {
-                var current = localStorage.getItem('name_pass') || 'Name#Pass';
-                v.innerHTML = '<h3>Settings</h3>' +
-                             'ID: <input id="my-id" value="'+current+'"><button onclick="saveID()">Save</button>';
+    // --- 通信ロジック ---
+
+    function loadChat() {
+        var xhr = new XMLHttpRequest();
+        xhr.open("GET", GIST_RAW + "?t=" + new Date().getTime(), true);
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState == 4 && xhr.status == 200) {
+                var db = JSON.parse(xhr.responseText);
+                var room = db[currentRoom];
+                var logDiv = document.getElementById('log');
+                if(!room) { logDiv.innerHTML = "部屋がありません。送信して作成してください。"; return; }
+                var html = "";
+                for(var i=0; i<room.logs.length; i++) {
+                    var p = room.logs[i];
+                    var d = new Date(p.t);
+                    html += '<div class="msg"><span class="time">['+d.getHours()+':'+("0"+d.getMinutes()).slice(-2)+']</span> ' +
+                            '<span class="user">'+p.u+'</span>: '+p.m+'</div>';
+                }
+                logDiv.innerHTML = html;
             }
-        }
-    </script>
+        };
+        xhr.send();
+    }
+
+    function send() {
+        var id = localStorage.getItem('chat_id');
+        var tk = localStorage.getItem('gh_token');
+        var msg = document.getElementById('msg').value;
+        if(!id || !tk || !msg) return alert("設定(ID/Token)または本文が不足");
+
+        var xhr = new XMLHttpRequest();
+        xhr.open("POST", "https://api.github.com/repos/"+GH_USER+"/"+GH_REPO+"/dispatches", true);
+        xhr.setRequestHeader("Authorization", "token " + tk);
+        xhr.setRequestHeader("Accept", "application/vnd.github.v3+json");
+
+        var payload = JSON.stringify({
+            "event_type": "chat_event",
+            "client_payload": {
+                "action": "post",
+                "room_uuid": currentRoom,
+                "name_pass": id,
+                "message": msg,
+                "time": new Date().getTime()
+            }
+        });
+
+        xhr.onreadystatechange = function() {
+            if(xhr.readyState == 4) {
+                if(xhr.status == 204) {
+                    document.getElementById('msg').value = "";
+                    alert("送信成功:システムの都合上、反映まで約30秒ほどかかります。");
+                } else {
+                    alert("エラー: " + xhr.status + "\nトークンを確認してください");
+                }
+            }
+        };
+        xhr.send(payload);
+    }
+
+    function loadRoomList() {
+        var xhr = new XMLHttpRequest();
+        xhr.open("GET", GIST_RAW + "?t=" + new Date().getTime(), true);
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState == 4 && xhr.status == 200) {
+                var db = JSON.parse(xhr.responseText);
+                var html = "";
+                for(var key in db) {
+                    if(key === "users") continue;
+                    html += '<div class="room-item"><a href="javascript:void(0)" onclick="openRoom(\''+key+'\')" style="color:#0af;">'+db[key].name+'</a></div>';
+                }
+                document.getElementById('room-list').innerHTML = html || "部屋がありません";
+            }
+        };
+        xhr.send();
+    }
+
+    function openRoom(id) {
+        currentRoom = id;
+        switchTab('chat');
+    }
+
+    function createRoom() {
+        var id = document.getElementById('new-rm').value;
+        if(id) openRoom(id);
+    }
+
+    function saveSet() {
+        localStorage.setItem('chat_id', document.getElementById('s-id').value);
+        localStorage.setItem('gh_token', document.getElementById('s-tk').value);
+        alert("保存しました");
+    }
+
+    function getQueryParam(n){
+        var r = new RegExp('[?&]'+n+'=([^&]*)');
+        var m = window.location.search.match(r);
+        return m ? m[1] : null;
+    }
+
+    // フレンド表示（簡易版）
+    function renderFriends() {
+        document.getElementById('friend-list').innerHTML = "機能開発中 (Gistのusers参照)";
+    }
+</script>
+
 </body>
 </html>
