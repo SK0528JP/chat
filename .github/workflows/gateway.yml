@@ -1,0 +1,28 @@
+name: Chat Gateway
+
+on:
+  repository_dispatch:
+    types: [chat_event]
+
+jobs:
+  process_request:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: hobbies/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Run Processor
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GIST_ID: ${{ secrets.GIST_ID }}
+          SECRET_SALT: ${{ secrets.SECRET_SALT }}
+          PAYLOAD: ${{ toJson(github.event.client_payload) }}
+        run: python scripts/processor.py
